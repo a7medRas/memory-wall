@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>جدار الذكريات الشامل</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      direction: rtl;
+      background: linear-gradient(to bottom right, #fceabb, #f8b500);
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    #chatToggle {
+      position: fixed;
+      left: 20px;
+      bottom: 20px;
+      background: #ff9800;
+      color: white;
+      padding: 12px;
+      border-radius: 50%;
+      font-size: 24px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    #chatBox {
+      position: fixed;
+      bottom: 80px;
+      left: 20px;
+      width: 300px;
+      max-height: 400px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      display: none;
+      flex-direction: column;
+    }
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    #chatInput {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+    #chatInput input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 0 0 0 12px;
+    }
+    #chatInput button {
+      padding: 10px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 0 0 12px 0;
+    }
+    form {
+      max-width: 600px;
+      margin: 0 auto 30px;
+      background: #ffffffdd;
+      padding: 25px;
+      border-radius: 18px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    form input, form textarea, form button, form label {
+      font-size: 16px;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      width: 100%;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #ff9800;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #generateCaption {
+      background-color: #4caf50;
+      margin-bottom: 10px;
+    }
+    .memory-wall {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .memory-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      overflow: hidden;
+      padding-bottom: 10px;
+    }
+    .memory-card img, .memory-card video {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+    }
+    .memory-content {
+      padding: 15px;
+    }
+    .share-buttons {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .share-buttons button {
+      margin: 4px;
+      padding: 8px 12px;
+      background-color: #ff9800;
+      color: white;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📸 جدار الذكريات الشامل</h1>
+
+<form id="memoryForm">
+  <input type="file" id="fileInput" accept="image/*,video/*" />
+  <button type="button" id="generateCaption">🔍 توليد وصف تلقائي</button>
+  <textarea id="textInput" placeholder="📝 اكتب ذكراك هنا..."></textarea>
+  <input type="date" id="dateInput" />
+  <label><input type="checkbox" id="privateCheck" /> اجعل هذه الذكرى خاصة 🔒</label>
+  <button type="submit">➕ أضف الذكرى</button>
+</form>
+
+<div class="memory-wall" id="memoryWall"></div>
+
+<button id="chatToggle">💬</button>
+<div id="chatBox">
+  <div id="chatMessages"></div>
+  <div id="chatInput">
+    <input type="text" id="chatMessage" placeholder="اكتب رسالتك..." />
+    <button onclick="sendMessage()">إرسال</button>
+  </div>
+</div>
+
+<script>
+  let memories = JSON.parse(localStorage.getItem("memories") || "[]");
+
+  const wall = document.getElementById("memoryWall");
+  const captions = [
+    "لحظة لا تُنسى من الماضي الجميل",
+    "ابتسامة خفية وراء هذه الصورة",
+    "مغامرة رائعة لا تنسى",
+    "جو من الفرح والضحك!",
+    "ذكرى مليئة بالحب والعفوية"
+  ];
+
+  document.getElementById("generateCaption").addEventListener("click", () => {
+    const random = captions[Math.floor(Math.random() * captions.length)];
+    document.getElementById("textInput").value = random;
+  });
+
+  document.getElementById("memoryForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const file = document.getElementById("fileInput").files[0];
+    const text = document.getElementById("textInput").value;
+    const date = document.getElementById("dateInput").value;
+    const isPrivate = document.getElementById("privateCheck").checked;
+    if (!file || !text || !date) return;
+
+    const reader = new FileReader();
+    reader.onload = function() {
+      const type = file.type.startsWith("video") ? "video" : "image";
+      memories.unshift({ type, content: reader.result, text, date, private: isPrivate });
+      localStorage.setItem("memories", JSON.stringify(memories));
+      renderMemories();
+      document.getElementById("memoryForm").reset();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function renderMemories() {
+    wall.innerHTML = "";
+    memories.forEach((mem, idx) => {
+      if (mem.private) return; // Hide private if needed
+      const isVideo = mem.type === "video";
+      const card = document.createElement("div");
+      card.className = "memory-card";
+      card.innerHTML = \`
+        \${isVideo ? '<video controls src="' + mem.content + '"></video>' : '<img src="' + mem.content + '" />'}
+        <div class="memory-content">
+          <p>\${mem.text}</p>
+          <p><strong>📅 \${mem.date}</strong></p>
+          <div class="share-buttons">
+            <button onclick="copyLink(\${idx})">🔗 نسخ الرابط</button>
+            \${!isVideo ? '<button onclick="downloadImage(\'\${mem.content}\')">💾 حفظ الصورة</button>' : ''}
+          </div>
+        </div>
+      \`;
+      wall.appendChild(card);
+    });
+  }
+
+  function copyLink(index) {
+    const url = window.location.origin + window.location.pathname + '?memory=' + index;
+    navigator.clipboard.writeText(url).then(() => {
+      alert('✅ تم نسخ الرابط بنجاح!');
+    });
+  }
+
+  function downloadImage(dataUrl) {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = 'memory.jpg';
+    link.click();
+  }
+
+  document.getElementById("chatToggle").addEventListener("click", () => {
+    const chatBox = document.getElementById("chatBox");
+    chatBox.style.display = chatBox.style.display === "flex" ? "none" : "flex";
+  });
+
+  function sendMessage() {
+    const input = document.getElementById("chatMessage");
+    const msg = input.value.trim();
+    if (msg) {
+      const msgBox = document.createElement("div");
+      msgBox.textContent = "🗨️ " + msg;
+      document.getElementById("chatMessages").appendChild(msgBox);
+      input.value = "";
+    }
+  }
+
+  renderMemories();
+</script>
+
+</body>
+</html>
