@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>جدار الذكريات</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #eef1f5; padding: 20px; direction: rtl; }
+    h1 { text-align: center; color: #333; margin-bottom: 30px; }
+    .card { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); margin-bottom: 25px; }
+    .card input, .card textarea, .card button, .card label { width: 100%; margin: 10px 0; padding: 10px; font-size: 16px; }
+    .card label span { margin-right: 10px; font-size: 15px; }
+    .memory-wall { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .memory-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; transition: transform 0.2s; }
+    .memory-card:hover { transform: scale(1.02); }
+    .memory-card img, .memory-card video { width: 100%; max-height: 250px; object-fit: cover; }
+    .memory-content { padding: 15px; }
+    .memory-footer { display: flex; justify-content: space-between; font-size: 14px; color: #777; }
+    .chat-button {
+      position: fixed; left: 20px; bottom: 20px;
+      background: #007bff; color: white; border: none;
+      border-radius: 50%; width: 50px; height: 50px;
+      font-size: 24px; cursor: pointer;
+    }
+    .private-tag { font-size: 12px; background: #ffc107; color: black; padding: 2px 8px; border-radius: 6px; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h1>📸 جدار الذكريات</h1>
+
+  <div class="card">
+    <input type="file" id="mediaInput" accept="image/*,video/*" />
+    <textarea id="textInput" rows="3" placeholder="اكتب ذكراك هنا..."></textarea>
+    <input type="date" id="dateInput" />
+    <label><input type="checkbox" id="privateInput" /> <span>اجعل هذه الذكرى خاصة 🔒</span></label>
+    <button onclick="addMemory()">➕ أضف الذكرى</button>
+  </div>
+
+  <div class="memory-wall" id="memoryWall"></div>
+
+  <button class="chat-button" onclick="window.location.href='chat.html'">💬</button>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBAM9pRhlQN86MYMA0_366w-0U_Y0rq28A",
+      authDomain: "memorywall-514a4.firebaseapp.com",
+      projectId: "memorywall-514a4",
+      storageBucket: "memorywall-514a4.appspot.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    async function addMemory() {
+      const file = document.getElementById('mediaInput').files[0];
+      const text = document.getElementById('textInput').value;
+      const date = document.getElementById('dateInput').value;
+      const isPrivate = document.getElementById('privateInput').checked;
+
+      if (!file || !text || !date) return alert("يرجى تعبئة جميع الحقول");
+
+      const fileRef = storageRef(storage, 'media/' + Date.now() + '_' + file.name);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+
+      await addDoc(collection(db, "memories"), {
+        mediaUrl: url,
+        mediaType: file.type.startsWith("video") ? "video" : "image",
+        text,
+        date,
+        private: isPrivate,
+        likes: 0,
+        timestamp: new Date()
+      });
+
+      alert("تمت إضافة الذكرى!");
+      window.location.reload();
+    }
+
+    async function loadMemories() {
+      const wall = document.getElementById('memoryWall');
+      const q = query(collection(db, "memories"), orderBy("timestamp", "desc"));
+      const snap = await getDocs(q);
+      snap.forEach(doc => {
+        const mem = doc.data();
+        if (mem.private) return; // تجاهل الذكريات الخاصة
+        const card = document.createElement("div");
+        card.className = "memory-card";
+        card.innerHTML = `
+          ${mem.mediaType === 'video'
+            ? `<video controls src="${mem.mediaUrl}"></video>`
+            : `<img src="${mem.mediaUrl}" alt="Memory">`}
+          <div class="memory-content">
+            <p>${mem.text}</p>
+            <div class="memory-footer">
+              <span>📅 ${mem.date}</span>
+              ${mem.private ? '<span class="private-tag">خاصة</span>' : ''}
+            </div>
+          </div>
+        `;
+        wall.appendChild(card);
+      });
+    }
+
+    loadMemories();
+  </script>
+</body>
+</html>
